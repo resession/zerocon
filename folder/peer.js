@@ -16,9 +16,12 @@ class Peer {
         this.user = user
         this.client = new WebTorrent({torrentPort: process.env.TORRENTPORT || 2000})
         this.torrents = []
-        this.peers = new DHT()
-        this.peers.listen(process.env.PEERPORT || 6000)
         this.torrentApps = []
+        this.peers = new DHT()
+        this.peers.listen(process.env.PEERPORT || 8000)
+        this.peers.on('peer', (peer, infoHash, from) => {
+            console.log(`found: ${peer.host}:${peer.port} - ${Buffer.from(infoHash).toString('hex')}`)
+        })
         // this.startHTTP()
         // this.startWS()
     }
@@ -28,146 +31,165 @@ class Peer {
     async getRandomPort(){
         return await getPort()
     }
-    startHTTP(){
-        this.http = express()
-        this.http.use(express.static('pub'))
-        this.http.use(express.urlencoded({extended: true}))
-        this.http.use(express.json())
-        this.http.get('/', (req, res) => {
-            return res.status(200).json('success')
-        })
-        this.http.post('/add', (req, res) => {
-            if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
-                return res.status(400).json('not correct key')
-            } else {
-                let postTorrent = this.postTorrent(req.body)
-                if(postTorrent.status){
-                    return res.status(200).json('successful ' + postTorrent.folderName + ' - ' + postTorrent.infohash)
-                } else {
-                    return res.status(200).json('unsuccessful ' + postTorrent.folderName + ' - ' + postTorrent.infohash)
-                }
-            }
-        })
-        this.http.get('/comm', (req, res) => {
-            return res.status(200).json({http: process.env.HTTPPORT || 4000, ws: process.env.WSPORT || 8000})
-        })
-        this.http.post('/delete', (req, res) => {
-            if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
-                return res.status(400).json('not correct key')
-            } else {
-                let deleteTorrent = this.deleteTorrent(req.body)
-                if(deleteTorrent.status){
-                    return res.status(200).json('successful ' + deleteTorrent.infohash)
-                } else {
-                    return res.status(200).json('unsuccessful ' + deleteTorrent.infohash)
-                }
-            }
-        })
-        this.http.post('/get', (req, res) => {
-            if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
-                return res.status(400).json('not correct key')
-            } else {
-                let getTorrent = this.getTorrent(req.body)
-                if(getTorrent.status){
-                    return res.status(200).json('successful ' + getTorrent.infohash)
-                } else {
-                    return res.status(200).json('unsuccessful ' + getTorrent.infohash)
-                }
-            }
-        })
-        this.http.post('/lookup', (req, res) => {
-            this.lookUpHash(req.body)
-            return res.status(200).json('success')
-        })
-        this.http.post('/start', (req, res) => {
-            if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
-                return res.status(400).json('not correct key')
-            } else {
-                let startApp = this.startTorrentApp(req.body)
-                if(startApp){
-                    return res.status(200).json('successful')
-                } else {
-                    return res.status(200).json('unsuccessful')
-                }
-            }
-        })
-        this.http.post('/stop', (req, res) => {
-            if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
-                return res.status(400).json('not correct key')
-            } else {
-                let stopApp = this.stopTorrentApp(req.body)
-                if(stopApp){
-                    return res.status(200).json('successful')
-                } else {
-                    return res.status(200).json('unsuccessful')
-                }
-            }
-        })
-        this.http.get('*', (req, res) => {
-            return res.status(400).json('error')
-        })
-        this.http.listen(Number(process.env.HTTPPORT) || 4000, process.env.HOST)
-        console.log('http listening')
-    }
-    startWS(){
-        this.ws = new WS.Server({port: Number(process.env.WSPORT), host: process.env.HOST})
-        // setInterval(() => {console.log(this.ws.clients.size)}, 5000)
-        this.startPeers()
-        this.ws.on('connection', socket => {
-            socket.check = setTimeout(() => {
-                socket.send(JSON.stringify('close'), () => {
-                    console.log('sent close signal')
-                })
-                socket.close()
-                console.log('check has closed the socket')
-            }, 150000)
-            socket.on('open', () => {
-                console.log('opened')
-            })
-            socket.on('close', (code, signal) => {
-                clearTimeout(socket.check)
-                console.log('socket closed', code, signal)
-            })
-            socket.on('error', error => {
-                console.log('socket error', error)
-            })
-            socket.on('message', message => {
-                let data = JSON.parse(message)
-                console.log('message data', data)
-                if(data === 'close'){
-                    socket.close()
-                }
-            })
-        })
-        this.ws.on('close', () => {
-            console.log('closed')
-        })
-        this.ws.on('error', error => {
-            console.log('socket error', error)
-        })
-        console.log('ws listening')
-    }
-    startPeers(){
-        this.peers.on('peer', (peer, infoHash, from) => {
-            this.ws.clients.forEach(socket => {
-                socket.send(JSON.stringify({peer, infoHash, from}), () => {
-                    console.log(`found: ${peer.host}:${peer.port} - ${Buffer.from(infoHash).toString('hex')}`)
-                })
-            })
-        })
+    // startHTTP(){
+    //     this.http = express()
+    //     this.http.use(express.static('pub'))
+    //     this.http.use(express.urlencoded({extended: true}))
+    //     this.http.use(express.json())
+    //     this.http.get('/', (req, res) => {
+    //         return res.status(200).json('success')
+    //     })
+    //     this.http.post('/add', (req, res) => {
+    //         if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
+    //             return res.status(400).json('not correct key')
+    //         } else {
+    //             let postTorrent = this.postTorrent(req.body)
+    //             if(postTorrent.status){
+    //                 return res.status(200).json('successful ' + postTorrent.folderName + ' - ' + postTorrent.infohash)
+    //             } else {
+    //                 return res.status(200).json('unsuccessful ' + postTorrent.folderName + ' - ' + postTorrent.infohash)
+    //             }
+    //         }
+    //     })
+    //     this.http.get('/comm', (req, res) => {
+    //         return res.status(200).json({http: process.env.HTTPPORT || 4000, ws: process.env.WSPORT || 8000})
+    //     })
+    //     this.http.post('/delete', (req, res) => {
+    //         if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
+    //             return res.status(400).json('not correct key')
+    //         } else {
+    //             let deleteTorrent = this.deleteTorrent(req.body)
+    //             if(deleteTorrent.status){
+    //                 return res.status(200).json('successful ' + deleteTorrent.infohash)
+    //             } else {
+    //                 return res.status(200).json('unsuccessful ' + deleteTorrent.infohash)
+    //             }
+    //         }
+    //     })
+    //     this.http.post('/get', (req, res) => {
+    //         if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
+    //             return res.status(400).json('not correct key')
+    //         } else {
+    //             let getTorrent = this.getTorrent(req.body)
+    //             if(getTorrent.status){
+    //                 return res.status(200).json('successful ' + getTorrent.infohash)
+    //             } else {
+    //                 return res.status(200).json('unsuccessful ' + getTorrent.infohash)
+    //             }
+    //         }
+    //     })
+    //     this.http.post('/lookup', (req, res) => {
+    //         this.lookUpHash(req.body)
+    //         return res.status(200).json('success')
+    //     })
+    //     this.http.post('/start', (req, res) => {
+    //         if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
+    //             return res.status(400).json('not correct key')
+    //         } else {
+    //             let startApp = this.startTorrentApp(req.body)
+    //             if(startApp){
+    //                 return res.status(200).json('successful')
+    //             } else {
+    //                 return res.status(200).json('unsuccessful')
+    //             }
+    //         }
+    //     })
+    //     this.http.post('/stop', (req, res) => {
+    //         if(!req.body.prikey || bitcoin.payments.p2pkh({pubkey: bitcoin.ECPair.fromWIF(req.body.prikey).publicKey}).address !== this.user.address){
+    //             return res.status(400).json('not correct key')
+    //         } else {
+    //             let stopApp = this.stopTorrentApp(req.body)
+    //             if(stopApp){
+    //                 return res.status(200).json('successful')
+    //             } else {
+    //                 return res.status(200).json('unsuccessful')
+    //             }
+    //         }
+    //     })
+    //     this.http.get('*', (req, res) => {
+    //         return res.status(400).json('error')
+    //     })
+    //     this.http.listen(Number(process.env.HTTPPORT) || 4000, process.env.HOST)
+    //     console.log('http listening')
+    // }
+    // startWS(){
+    //     this.ws = new WS.Server({port: Number(process.env.WSPORT), host: process.env.HOST})
+    //     // setInterval(() => {console.log(this.ws.clients.size)}, 5000)
+    //     this.startPeers()
+    //     this.ws.on('connection', socket => {
+    //         socket.check = setTimeout(() => {
+    //             socket.send(JSON.stringify('close'), () => {
+    //                 console.log('sent close signal')
+    //             })
+    //             socket.close()
+    //             console.log('check has closed the socket')
+    //         }, 150000)
+    //         socket.on('open', () => {
+    //             console.log('opened')
+    //         })
+    //         socket.on('close', (code, signal) => {
+    //             clearTimeout(socket.check)
+    //             console.log('socket closed', code, signal)
+    //         })
+    //         socket.on('error', error => {
+    //             console.log('socket error', error)
+    //         })
+    //         socket.on('message', message => {
+    //             let data = JSON.parse(message)
+    //             console.log('message data', data)
+    //             if(data === 'close'){
+    //                 socket.close()
+    //             }
+    //         })
+    //     })
+    //     this.ws.on('close', () => {
+    //         console.log('closed')
+    //     })
+    //     this.ws.on('error', error => {
+    //         console.log('socket error', error)
+    //     })
+    //     console.log('ws listening')
+    // }
+    // startPeers(){
+    //     this.peers.on('peer', (peer, infoHash, from) => {
+    //         this.ws.clients.forEach(socket => {
+    //             socket.send(JSON.stringify({peer, infoHash, from}), () => {
+    //                 console.log(`found: ${peer.host}:${peer.port} - ${Buffer.from(infoHash).toString('hex')}`)
+    //             })
+    //         })
+    //     })
+    // }
+    startAllApps(appInfo){
+        let hashes = fs.readdirSync('./zerocon')
+        for(let hash of hashes){
+            this.runTorrentApp({hash, host: appInfo.host, httpport: this.getRandomPort(), wsport: this.getRandomPort()})
+        }
     }
     stopAllApps(){
         this.torrentApps.forEach(app => {
             app.kill()
         })
+        this.torrentApps = []
         console.log('stopped all apps')
     }
-    startTorrentApp(torrentInfo){
-        console.log('starting torrent app ' + torrentInfo.hash)
-        return this.runTorrentApp(torrentInfo.hash, torrentInfo.host, torrentInfo.httpport, torrentInfo.wsport)
+    getAllTorrents(hashInfo){
+        for(let hash of hashInfo.hashes){
+            this.getTorrent({infohash: hash})
+        }
     }
+    deleteAllTorrents(){
+        this.torrents.forEach(torrent => {
+            torrent.destroy()
+        })
+        this.torrents = []
+        console.log('all torrents deleted')
+    }
+    // startTorrentApp(torrentInfo){
+    //     console.log('starting torrent app ' + torrentInfo.hash)
+    //     return this.runTorrentApp(torrentInfo.hash, torrentInfo.host, torrentInfo.httpport, torrentInfo.wsport)
+    // }
     runTorrentApp(hash, host, httpport, wsport){
-        let zero = JSON.parse(fs.readFileSync('../zerocon/' + hash + '/zero.json'))
+        let zero = JSON.parse(fs.readFileSync('./zerocon/' + hash + '/zero.json'))
         let torrentApp = null
         let environmentVar = {...process.env}
         environmentVar.HTTPPORT = httpport
@@ -176,9 +198,9 @@ class Peer {
         try {
             if(zero.runLanguage === 'python' || zero.runLanguage === 'python3'){
                 zero.runLanguage = process.platform !== 'win32' ? 'python3' : 'python'
-                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../../zerocon/' + hash), shell: true})
+                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, './zerocon/' + hash), shell: true})
             } else {
-                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../../zerocon/' + hash), shell: true})
+                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, './zerocon/' + hash), shell: true})
             }
         } catch (error) {
             console.log('try/catch', error)
@@ -213,7 +235,6 @@ class Peer {
             console.log('remove app again, just to be sure')
             console.log('closed: ', code, signal)
         })
-        return true
     }
     async killThePort(port){
         let res = await killPort(Number(port), 'tcp')
@@ -244,7 +265,7 @@ class Peer {
             }
         }
         if(found){
-            this.torrents.splice(iter, 1)
+            this.torrentApps.splice(iter, 1)
             console.log('app was removed')
         }
     }
@@ -272,7 +293,7 @@ class Peer {
         let iter = 0
         let found = false
         for(let i = 0;i < this.torrents.length; i++){
-            if(this.torrents[i].infohash.toLowerCase() === torrentInfo.infohash || this.torrents[i].infohash.toUpperCase() === torrentInfo.infohash){
+            if(this.torrents[i].infoHash.toLowerCase() === torrentInfo.infohash || this.torrents[i].infoHash.toUpperCase() === torrentInfo.infohash){
                 found = true
                 iter = i
                 this.torrents[i].destroy()
@@ -293,23 +314,30 @@ class Peer {
         //     }
         // })
     }
+    lineByLine(data){
+        let outLog = ''
+        for(let [key, value] of Object.entries(data)){
+            outLog = outLog + key + ': ' + value + '\n'
+        }
+        return outLog
+    }
     postTorrent(torrentInfo){
-        torrentInfo.folderName = torrentInfo.folderName.replace(/[^a-zA-Z0-9]/g, "")
-        if(!fs.existsSync('./data/' + torrentInfo.folderName)){
-            console.log('can not find a folder with the name ' + torrentInfo.folderName)
-            return {status: false, infohash: 'not available', folderName: torrentInfo.folderName}
+        torrentInfo.mainData.folderName = torrentInfo.mainData.folderName.replace(/[^a-zA-Z0-9]/g, "")
+        if(!fs.existsSync('./data/' + torrentInfo.mainData.folderName)){
+            console.log('can not find a folder with the name ' + torrentInfo.mainData.folderName)
+            return {status: false, infohash: 'not available', folderName: torrentInfo.mainData.folderName}
         }
         torrentInfo.torrentData.user = this.user.address
-        fs.writeFileSync('./data/' + torrentInfo.folderName + '/info.txt', `user: ${torrentInfo.torrentData.user}\nsite: ${torrentInfo.torrentData.site ? torrentInfo.torrentData.site : 'none'}\nfront-end-hash: ${torrentInfo.torrentData.frontEndHash ? torrentInfo.torrentData.frontEndHash : 'none'}\ndescription: ${torrentInfo.torrentData.description}`)
-        fs.writeFileSync('./data/' + torrentInfo.folderName + '/zero.json', JSON.stringify(torrentInfo.appData))
-        let torrent = this.client.seed('./data/' + torrentInfo.folderName)
+        fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/info.txt', this.lineByLine(torrentInfo.torrentData))
+        fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/zero.json', JSON.stringify(torrentInfo.appData))
+        let torrent = this.client.seed('./data/' + torrentInfo.mainData.folderName)
         torrent.on('ready', () => {
             // torrent.on('upload', bytes => {
             //     console.log(bytes)
             // })
             this.torrents.push(torrent)
-            console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + torrentInfo.folderName)
-            fse.copySync('./data/' + torrentInfo.folderName, '../zerocon/' + torrent.infoHash, {recursive: true})
+            console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + torrentInfo.mainData.folderName)
+            fse.copySync('./data/' + torrentInfo.mainData.folderName, './zerocon/' + torrent.infoHash, {recursive: true})
         })
         torrent.on('error', () => {
             console.log('there was an error')
@@ -317,7 +345,7 @@ class Peer {
         // torrent.on('upload', bytes => {
         //     console.log(bytes)
         // })
-        return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.folderName}
+        return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.mainData.folderName}
     }
     getTorrent(torrentInfo){
         let torrent = this.client.add(torrentInfo.infohash, {path: './data/' + torrentInfo.infohash})
@@ -349,7 +377,7 @@ class Peer {
             // })
             torrent.on('done', () => {
                 console.log('infohash: ' + torrent.infoHash + ' is done')
-                fse.copySync('./data/' + torrentInfo.infohash, '../zerocon/' + torrent.infoHash, {recursive: true})
+                fse.copySync('./data/' + torrentInfo.infohash, './zerocon/' + torrent.infoHash, {recursive: true})
             })
             this.torrents.push(torrent)
         })

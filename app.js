@@ -1,11 +1,12 @@
 require('dotenv').config()
 const {startUser} = require('./folder/user.js')
 const {Peer} = require('./folder/peer.js')
+const {asyncReadlLine} = require('./reso/commands.js')
 
 const peer = new Peer(startUser())
 
-peer.startHTTP()
-peer.startWS()
+// peer.startHTTP()
+// peer.startWS()
 
 process.on('SIGINT', code => {
     peer.stopAllApps()
@@ -20,3 +21,5 @@ process.on('exit', code => {
     console.log(code)
     console.log('exited')
 })
+
+asyncReadlLine()

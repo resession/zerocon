@@ -22,7 +22,7 @@ process.on('exit', code => {
 let rl = readline.Interface({input: process.stdin, output: process.stdout})
 
 function commandFunc(){
-    rl.question('Command And Data: ', async (answer) => {
+    rl.question('Command And Data: ', answer => {
         try {
             answer = JSON.parse(answer)
             switch (answer.command) {

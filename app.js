@@ -1,12 +1,9 @@
 require('dotenv').config()
 const {startUser} = require('./folder/user.js')
 const {Peer} = require('./folder/peer.js')
-const {asyncReadlLine} = require('./reso/commands.js')
+const readline = require('readline')
 
 const peer = new Peer(startUser())
-
-// peer.startHTTP()
-// peer.startWS()
 
 process.on('SIGINT', code => {
     peer.stopAllApps()
@@ -22,4 +19,76 @@ process.on('exit', code => {
     console.log('exited')
 })
 
-asyncReadlLine()
+let rl = readline.Interface({input: process.stdin, output: process.stdout})
+
+function commandFunc(){
+    rl.question('Command And Data: ', async (answer) => {
+        try {
+            answer = JSON.parse(answer)
+            switch (answer.command) {
+                case 'add':
+                    peer.postTorrent(answer.data)
+                    console.log(answer.command + ' done')
+                    break;
+                case 'get':
+                    peer.getTorrent(answer.data)
+                    console.log(answer.command + ' done')
+                    break;
+                case 'delete':
+                    peer.deleteTorrent(answer.data)
+                    console.log(answer.command + ' done')
+                    break;
+                case 'start':
+                    peer.runTorrentApp(answer.data)
+                    console.log(answer.command + ' done')
+                    break;
+                case 'stop':
+                    peer.stopTorrentApp(answer.data)
+                    console.log(answer.command + ' done')
+                    break;
+                case 'lookup':
+                    peer.lookUpHash(answer.data)
+                    console.log(answer.command + ' done')
+                    break;
+                default:
+                    console.log('not a command')
+                    break;
+            }
+        } catch (error) {
+            console.log('--------------------------------------------------------\n')
+            console.log(error)
+            console.log('\n--------------------------------------------------------')
+        }
+        // try {
+        //     answer = JSON.parse(answer)
+        //     if(answer.command === 'add'){
+        //         peer.postTorrent(answer.data)
+        //         console.log(answer.command + ' done')
+        //     } else if(answer.command === 'get'){
+        //         peer.getTorrent(answer.data)
+        //         console.log(answer.command + ' done')
+        //     } else if(answer.command === 'delete'){
+        //         peer.deleteTorrent(answer.data)
+        //         console.log(answer.command + ' done')
+        //     } else if(answer.command === 'start'){
+        //         peer.runTorrentApp(answer.data)
+        //         console.log(answer.command + ' done')
+        //     } else if(answer.command === 'stop'){
+        //         peer.stopTorrentApp(answer.data)
+        //         console.log(answer.command + ' done')
+        //     } else if(answer.command === 'lookup'){
+        //         peer.lookUpHash(answer.data)
+        //         console.log(answer.command + ' done')
+        //     } else {
+        //         console.log('not a command')
+        //     }
+        // } catch (error) {
+        // console.log('--------------------------------------------------------\n')
+        // console.log(error)
+        // console.log('\n--------------------------------------------------------')
+        // }
+        commandFunc()
+    })
+}
+
+commandFunc()

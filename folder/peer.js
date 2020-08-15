@@ -1,5 +1,5 @@
 const WebTorrent = require('webtorrent')
-const DHT = require('bittorrent-dht')
+// const DHT = require('bittorrent-dht')
 const fs = require('fs')
 const fse = require('fs-extra')
 const SHA1 = require('sha1')
@@ -10,6 +10,7 @@ const express = require('express')
 const bitcoin = require("bitcoinjs-lib")
 const killPort = require('kill-port')
 const WS = require('ws')
+const DHT = require('@hyperswarm/dht')
 
 class Peer {
     constructor(user){
@@ -17,11 +18,13 @@ class Peer {
         this.client = new WebTorrent({torrentPort: process.env.TORRENTPORT || 2000})
         this.torrents = []
         this.torrentApps = []
-        this.peers = new DHT()
+        this.peers = DHT()
         this.peers.listen(process.env.PEERPORT || 8000)
-        this.peers.on('peer', (peer, infoHash, from) => {
-            console.log(`found: ${peer.host}:${peer.port} - ${Buffer.from(infoHash).toString('hex')}`)
-        })
+        // this.peers = new DHT()
+        // this.peers.listen(process.env.PEERPORT || 8000)
+        // this.peers.on('peer', (peer, infoHash, from) => {
+        //     console.log(`found: ${peer.host}:${peer.port} - ${Buffer.from(infoHash).toString('hex')}`)
+        // })
         // this.startHTTP()
         // this.startWS()
     }
@@ -159,6 +162,37 @@ class Peer {
     //         })
     //     })
     // }
+    announcePeer(hash, port){
+        port = Number(port)
+        this.peers.announce(hash, {port}, error => {
+            if(error){
+                console.log('announce error\n', error)
+            } else {
+                console.log('announced peer')
+            }
+        })
+        // this.peers.announce(hash, port, () => {
+        //     console.log('announced peer')
+        // })
+    }
+    unannouncePeer(hash, port){
+        port = Number(port)
+        this.peers.unannounce(hash, {port}, () => {
+            console.log('unannounced peer')
+        })
+    }
+    async lookUpHash(torrentInfo){
+        // this.peers.lookup(torrentInfo.hash, () => {
+        //     console.log('looked up ' + torrentInfo.hash)
+        // })
+        let res = await this.getLookUpHash(torrentInfo.hash)
+        console.log(res)
+    }
+    getLookUpHash(hash){
+        return new Promise(resolve => {
+            this.peers.lookup(hash).on('data', data => {console.log(data)}).on('end', () => {resolve('lookup is finished')})
+        })
+    }
     startAllApps(appInfo){
         let hashes = fs.readdirSync('./zerocon')
         for(let hash of hashes){
@@ -167,6 +201,7 @@ class Peer {
     }
     stopAllApps(){
         this.torrentApps.forEach(app => {
+            this.unannouncePeer(app.announce.hash, app.announce.port)
             app.kill()
         })
         this.torrentApps = []
@@ -208,10 +243,12 @@ class Peer {
             return false
         }
         torrentApp.infohash = hash
-        torrentApp.announce = {hash: SHA1(hash + 'zerocon'), port: httpport}
-        torrentApp.check = setInterval(() => {
-            this.announcePeer(torrentApp.announce.hash, torrentApp.announce.port)
-        }, 300000)
+        // torrentApp.announce = {hash: SHA1(hash + 'zerocon'), port: httpport}
+        // torrentApp.check = setInterval(() => {
+        //     this.announcePeer(torrentApp.announce.hash, torrentApp.announce.port)
+        // }, 300000)
+        torrentApp.announce = {hash, port: httpport}
+        this.announcePeer(torrentApp.announce.hash, torrentApp.announce.port)
         this.torrentApps.push(torrentApp)
         // torrentApp.stderr.setEncoding('utf8')
         // torrentApp.stdout.setEncoding('utf8')
@@ -219,19 +256,20 @@ class Peer {
         torrentApp.stdout.pipe(process.stdout)
         torrentApp.on('error', error => {
             console.log('error: ', error)
-            torrentApp.kill()
+            // torrentApp.kill()
+            this.stopTorrentApp({hash: torrentApp.infohash})
         })
         torrentApp.on('exit', (code, signal) => {
-            clearInterval(torrentApp.check)
+            // clearInterval(torrentApp.check)
             this.killThePort(torrentApp.announce.port)
-            this.removeTorrentApp(torrentApp.infohash)
+            // this.removeTorrentApp(torrentApp.infohash)
             console.log('remove app because of exit')
             console.log('exited: ', code, signal)
         })
         torrentApp.on('close', (code, signal) => {
-            clearInterval(torrentApp.check)
+            // clearInterval(torrentApp.check)
             this.killThePort(torrentApp.announce.port)
-            this.removeTorrentApp(torrentApp.infohash)
+            // this.removeTorrentApp(torrentApp.infohash)
             console.log('remove app again, just to be sure')
             console.log('closed: ', code, signal)
         })
@@ -241,23 +279,30 @@ class Peer {
         // console.log(res)
         return res
     }
+    // stopTorrentApp(torrentInfo){
+    //     // let stopApp = false
+    //     for(let i = 0;i < this.torrentApps.length; i++){
+    //         if(torrentInfo.hash === this.torrentApps[i].infohash.toLowerCase() || torrentInfo.hash === this.torrentApps[i].infohash.toUpperCase()){
+    //             this.unannouncePeer(this.torrentApps[i].announce.hash, this.torrentApps[i].announce.port)
+    //             this.torrentApps[i].kill()
+    //             stopApp = true
+    //             console.log('app was found')
+    //             return stopApp
+    //         } else {
+    //             console.log('app could not be found')
+    //         }
+    //     }
+    //     return stopApp
+    // }
     stopTorrentApp(torrentInfo){
-        let stopApp = false
-        for(let i = 0;i < this.torrentApps.length; i++){
-            if(torrentInfo.hash === this.torrentApps[i].infohash.toLowerCase() || torrentInfo.hash === this.torrentApps[i].infohash.toUpperCase()){
-                this.torrentApps[i].kill()
-                stopApp = true
-            }
-        }
-        return stopApp
-    }
-    removeTorrentApp(hash){
         let iter = 0
         let found = false
         for(let i = 0;i < this.torrentApps.length; i++){
-            if(this.torrentApps[i].infohash.toLowerCase() === hash || this.torrentApps[i].infohash.toUpperCase() === hash){
+            if(torrentInfo.hash === this.torrentApps[i].infohash.toLowerCase() || torrentInfo.hash === this.torrentApps[i].infohash.toUpperCase()){
                 found = true
                 iter = i
+                this.unannouncePeer(this.torrentApps[i].announce.hash, this.torrentApps[i].announce.port)
+                this.torrentApps[i].kill()
                 // this.torrentApps[i].kill()
                 console.log('app was found')
             } else {
@@ -269,23 +314,41 @@ class Peer {
             console.log('app was removed')
         }
     }
-    announcePeer(hash, port){
-        port = Number(port)
-        this.peers.announce(hash, port, () => {
-            console.log('announced peer')
-        })
-    }
+    // removeTorrentApp(hash){
+    //     let iter = 0
+    //     let found = false
+    //     for(let i = 0;i < this.torrentApps.length; i++){
+    //         if(this.torrentApps[i].infohash.toLowerCase() === hash || this.torrentApps[i].infohash.toUpperCase() === hash){
+    //             found = true
+    //             iter = i
+    //             // this.torrentApps[i].kill()
+    //             console.log('app was found')
+    //         } else {
+    //             console.log('app could not be found')
+    //         }
+    //     }
+    //     if(found){
+    //         this.torrentApps.splice(iter, 1)
+    //         console.log('app was removed')
+    //     }
+    // }
+    // announcePeer(hash, port){
+    //     port = Number(port)
+    //     this.peers.announce(hash, port, () => {
+    //         console.log('announced peer')
+    //     })
+    // }
     // unannouncePeer(hash, port){
     //     port = Number(port)
     //     this.peers.unannounce(SHA1(hash + 'zerocon'), port, () => {
     //         console.log('unannounced peer')
     //     })
     // }
-    lookUpHash(torrentInfo){
-        this.peers.lookup(SHA1(torrentInfo.hash + 'zerocon'), () => {
-            console.log('looked up ' + torrentInfo.hash)
-        })
-    }
+    // lookUpHash(torrentInfo){
+    //     this.peers.lookup(SHA1(torrentInfo.hash + 'zerocon'), () => {
+    //         console.log('looked up ' + torrentInfo.hash)
+    //     })
+    // }
     // saveUser(){
     //     fs.writeFileSync('./user.json', JSON.stringify(this.user))
     // }

@@ -10,6 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
+    "@hyperswarm/dht": "^4.0.1",
     "bitcoinjs-lib": "^5.1.10",
     "bittorrent-dht": "^10.0.0",
     "create-torrent": "^4.4.2",

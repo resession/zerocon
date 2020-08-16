@@ -199,10 +199,13 @@ class Peer {
         })
     }
     startAllApps(appInfo){
-        let hashes = fs.readdirSync('./zerocon')
-        for(let hash of hashes){
+        for(let hash of appInfo.hashes.split(',')){
             this.runTorrentApp({hash, host: appInfo.host, httpport: this.getRandomPort(), wsport: this.getRandomPort()})
         }
+        // let hashes = fs.readdirSync('./zerocon')
+        // for(let hash of hashes){
+        //     this.runTorrentApp({hash, host: appInfo.host, httpport: this.getRandomPort(), wsport: this.getRandomPort()})
+        // }
     }
     stopAllApps(){
         this.torrentApps.forEach(app => {

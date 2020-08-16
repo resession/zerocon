@@ -63,7 +63,7 @@ class Peer {
         })
     }
     getLookUpData(data){
-        return '\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n' + '))))))))))))) node ((((((((((((\n' + 'node - host: ' + data.node.host + ' port: ' + data.node.port + '\n' + 'to - host: ' + data.to.host + ' port: ' + data.to.port + '\n-----------------------------------------\n)))))))))))))))) peers ((((((((((((((((' + this.lineByList(data.peers) + '\n<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n'
+        return '\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n' + '))))))))))))) node ((((((((((((\n' + 'node - host: ' + data.node.host + ' port: ' + data.node.port + '\n' + 'to - host: ' + data.to.host + ' port: ' + data.to.port + '\n-----------------------------------------\n)))))))))))))))) peers ((((((((((((((((' + this.lineByList(data.peers) + '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n'
     }
     startAllApps(appInfo){
         for(const hash of appInfo.hashes.split(',')){

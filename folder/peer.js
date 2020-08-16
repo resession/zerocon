@@ -194,8 +194,9 @@ class Peer {
         console.log(res)
     }
     getLookUpHash(hash){
+        hash = MD5(hash)
         return new Promise(resolve => {
-            this.peers.lookup(hash).on('data', data => {console.log(data)}).on('end', () => {resolve('lookup is finished')})
+            this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {console.log(data)}).on('end', () => {resolve('lookup is finished')})
         })
     }
     startAllApps(appInfo){

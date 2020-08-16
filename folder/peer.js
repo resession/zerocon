@@ -11,6 +11,9 @@ const bitcoin = require("bitcoinjs-lib")
 const killPort = require('kill-port')
 const WS = require('ws')
 const DHT = require('@hyperswarm/dht')
+const toArrayBuffer = require('to-array-buffer')
+const SHA256 = require('crypto-js/sha256')
+const MD5 = require('md5')
 
 class Peer {
     constructor(user){
@@ -164,7 +167,8 @@ class Peer {
     // }
     announcePeer(hash, port){
         port = Number(port)
-        this.peers.announce(hash, {port}, error => {
+        hash = MD5(hash)
+        this.peers.announce(Buffer.from(hash, 'utf8'), {port}, error => {
             if(error){
                 console.log('announce error\n', error)
             } else {
@@ -177,7 +181,8 @@ class Peer {
     }
     unannouncePeer(hash, port){
         port = Number(port)
-        this.peers.unannounce(hash, {port}, () => {
+        hash = MD5(hash)
+        this.peers.unannounce(Buffer.from(hash, 'utf8'), {port}, () => {
             console.log('unannounced peer')
         })
     }
@@ -208,9 +213,12 @@ class Peer {
         console.log('stopped all apps')
     }
     getAllTorrents(hashInfo){
-        for(let hash of hashInfo.hashes){
+        for(let hash of hashInfo.hashes.split(',')){
             this.getTorrent({infohash: hash})
         }
+        // for(let hash of hashInfo.hashes){
+        //     this.getTorrent({infohash: hash})
+        // }
     }
     deleteAllTorrents(){
         this.torrents.forEach(torrent => {
@@ -223,31 +231,31 @@ class Peer {
     //     console.log('starting torrent app ' + torrentInfo.hash)
     //     return this.runTorrentApp(torrentInfo.hash, torrentInfo.host, torrentInfo.httpport, torrentInfo.wsport)
     // }
-    runTorrentApp(hash, host, httpport, wsport){
-        let zero = JSON.parse(fs.readFileSync('./zerocon/' + hash + '/zero.json'))
+    runTorrentApp(runData){
+        let zero = JSON.parse(fs.readFileSync('./zerocon/' + runData.hash + '/zero.json'))
         let torrentApp = null
         let environmentVar = {...process.env}
-        environmentVar.HTTPPORT = httpport
-        environmentVar.WSPORT = wsport
-        environmentVar.HOST = host
+        environmentVar.HTTPPORT = runData.httpport
+        environmentVar.WSPORT = runData.wsport
+        environmentVar.HOST = runData.host
         try {
             if(zero.runLanguage === 'python' || zero.runLanguage === 'python3'){
                 zero.runLanguage = process.platform !== 'win32' ? 'python3' : 'python'
-                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, './zerocon/' + hash), shell: true})
+                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../zerocon/' + runData.hash), shell: true})
             } else {
-                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, './zerocon/' + hash), shell: true})
+                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../zerocon/' + runData.hash), shell: true})
             }
         } catch (error) {
             console.log('try/catch', error)
             console.log('could not install packages, did not start torrent app')
             return false
         }
-        torrentApp.infohash = hash
+        torrentApp.infohash = runData.hash
         // torrentApp.announce = {hash: SHA1(hash + 'zerocon'), port: httpport}
         // torrentApp.check = setInterval(() => {
         //     this.announcePeer(torrentApp.announce.hash, torrentApp.announce.port)
         // }, 300000)
-        torrentApp.announce = {hash, port: httpport}
+        torrentApp.announce = {hash: runData.hash, port: runData.httpport}
         this.announcePeer(torrentApp.announce.hash, torrentApp.announce.port)
         this.torrentApps.push(torrentApp)
         // torrentApp.stderr.setEncoding('utf8')
@@ -369,13 +377,6 @@ class Peer {
             this.torrents.splice(iter, 1)
             console.log('torrent was removed')
         }
-        return {status: found, infohash: torrentInfo.infohash}
-        // this.torrents.forEach(element => {
-        //     if(element.infoHash.toLowerCase() === torrentInfo.infohash || element.infoHash.toUpperCase() === torrentInfo.infohash){
-        //         element.destroy()
-        //         console.log('torrent removed')
-        //     }
-        // })
     }
     lineByLine(data){
         let outLog = ''
@@ -395,9 +396,6 @@ class Peer {
         fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/zero.json', JSON.stringify(torrentInfo.appData))
         let torrent = this.client.seed('./data/' + torrentInfo.mainData.folderName)
         torrent.on('ready', () => {
-            // torrent.on('upload', bytes => {
-            //     console.log(bytes)
-            // })
             this.torrents.push(torrent)
             console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + torrentInfo.mainData.folderName)
             fse.copySync('./data/' + torrentInfo.mainData.folderName, './zerocon/' + torrent.infoHash, {recursive: true})
@@ -405,13 +403,13 @@ class Peer {
         torrent.on('error', () => {
             console.log('there was an error')
         })
-        // torrent.on('upload', bytes => {
-        //     console.log(bytes)
-        // })
         return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.mainData.folderName}
     }
     getTorrent(torrentInfo){
         let torrent = this.client.add(torrentInfo.infohash, {path: './data/' + torrentInfo.infohash})
+
+        this.torrents.push(torrent)
+        
         torrent.on('infoHash', () => {
             console.log('infoHash has been determined')
         })
@@ -421,33 +419,13 @@ class Peer {
         torrent.on('metadata', () => {
             console.log('metadata is good')
         })
-        // torrent.on('noPeers', () => {
-        //     console.log('no peers')
-        // })
-        // torrent.on('upload', () => {
-        //     console.log('uploading now')
-        // })
-        // torrent.on('warning', () => {
-        //     console.log('there was a warning');
-        // })
         torrent.on('ready', () => {
             console.log('infohash: ' + torrent.infoHash + ' is ready and now downloading')
-            // torrent.on('download', () => {
-            //     console.log('downloading now')
-            // })
-            // torrent.on('wire', () => {
-            //     console.log('wiring')
-            // })
             torrent.on('done', () => {
                 console.log('infohash: ' + torrent.infoHash + ' is done')
                 fse.copySync('./data/' + torrentInfo.infohash, './zerocon/' + torrent.infoHash, {recursive: true})
             })
-            this.torrents.push(torrent)
         })
-        return {status: true, infohash: torrent.infoHash}
-        // let self = this
-        // setTimeout(() => {self.removeTorrent(torrentInfo.infohash)}, 10000)
-        // setInterval(() => {console.log(self.torrents.length)}, 10000)
     }
 }
 

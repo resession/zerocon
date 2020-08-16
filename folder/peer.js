@@ -63,7 +63,7 @@ class Peer {
         })
     }
     getLookUpData(data){
-        return '\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n' + '))))))))))))) node ((((((((((((\n' + 'node - host: ' + data.node.host + ' port: ' + data.node.port + '\n' + 'to - host: ' + data.to.host + ' port: ' + data.to.port + '\n-----------------------------------------\n)))))))))))))))) peers ((((((((((((((((' + this.lineByList(data.peers) + '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n'
+        return '\n' + '>'.repeat(40) + '\n' + ')'.repeat(16) + ' node ' + '('.repeat(16) + '\n' + 'node - host: ' + data.node.host + ' port: ' + data.node.port + '\n' + 'to - host: ' + data.to.host + ' port: ' + data.to.port + '\n' + '-'.repeat(40) + '\n' + ')'.repeat(16) + ' peers ' + '('.repeat(16) + this.lineByList(data.peers) + '<'.repeat(40) + '\n'
     }
     startAllApps(appInfo){
         for(const hash of appInfo.hashes.split(',')){

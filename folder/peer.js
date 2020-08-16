@@ -63,7 +63,7 @@ class Peer {
         })
     }
     getLookUpData(data){
-        return '>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n' + 'node - host: ' + data.node.host + ' port: ' + data.node.port + '\n' + 'to - host: ' + data.to.host + ' port: ' + data.to.port + '\n-----------------------------------------\n' + this.lineByList(data.peers) + '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<'
+        return '\n>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>\n' + 'node - host: ' + data.node.host + ' port: ' + data.node.port + '\n' + 'to - host: ' + data.to.host + ' port: ' + data.to.port + '\n-----------------------------------------\n' + this.lineByList(data.peers) + '<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n'
     }
     startAllApps(appInfo){
         for(const hash of appInfo.hashes.split(',')){
@@ -175,11 +175,11 @@ class Peer {
         }
     }
     lineByList(data){
-        let outLog = ''
+        let outLog = '\n'
         for(const info of data){
-            outLog = outLog + this.lineByLine(info)
+            outLog = outLog + info.host + ':' + info.port + ' | host: ' + info.host + ' - port: ' + info.port + '\n'
         }
-        return outLog
+        return outLog + '\n'
     }
     lineByLine(data){
         let outLog = ''

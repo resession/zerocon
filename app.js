@@ -26,7 +26,7 @@ function commandFunc(){
         try {
             answer = JSON.parse(answer)
             switch (answer.command) {
-                case 'add':
+                case 'post':
                     peer.postTorrent(answer.data)
                     console.log(answer.command + ' done')
                     break;

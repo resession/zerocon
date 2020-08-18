@@ -37,16 +37,31 @@ class Peer {
             return res.status(200).json('success')
         })
         this.http.get('/every/:hash', async (req, res) => {
-            let peers = await this.everyLookUpHash(req.params.hash)
-            return res.status(200).json(peers)
+            try {
+                let peers = await this.everyLookUpHash(req.params.hash)
+                return res.status(200).json(peers)
+            } catch (error) {
+                console.log('every http error\n', error)
+                return res.status(400).json('was an error with your request')
+            }
         })
         this.http.get('/all/:hash', async (req, res) => {
-            let peers = await this.allLookUpHash(req.params.hash)
-            return res.status(200).json(peers)
+            try {
+                let peers = await this.allLookUpHash(req.params.hash)
+                return res.status(200).json(peers)
+            } catch (error) {
+                console.log('every http error\n', error)
+                return res.status(400).json('was an error with your request')
+            }
         })
         this.http.get('/random/:hash', async (req, res) => {
-            let peer = await this.randomLookUpHash(req.params.hash)
-            return res.status(200).json(peer)
+            try {
+                let peer = await this.randomLookUpHash(req.params.hash)
+                return res.status(200).json(peer)
+            } catch (error) {
+                console.log('every http error\n', error)
+                return res.status(400).json('was an error with your request')
+            }
         })
         this.http.get('*', (req, res) => {
             return res.status(400).json('error')
@@ -68,8 +83,19 @@ class Peer {
             socket.on('error', error => {
                 console.log('socket error\n', error)
             })
-            socket.on('message', message => {
-                this.messageHandle({socket, message})
+            socket.on('message', async (message) => {
+                try {
+                    let peers = await this.allLookUpHash(message)
+                    socket.send(JSON.stringify(peers), error => {
+                        console.log('socket send message try error\n', error)
+                    })
+                    // this.messageHandle({socket, message})
+                } catch (error) {
+                    console.log('socket message error\n', error)
+                    socket.send('there was an error, make sure you only send the infohash', err => {
+                        console.log('socket send message catch error\n', err)
+                    })
+                }
             })
             socket.on('open', () => {
                 console.log('socket opened')
@@ -178,8 +204,8 @@ class Peer {
         })
     }
     everyLookUpHash(hash){
-        hash = MD5(hash)
         return new Promise(resolve => {
+            hash = MD5(hash)
             let peers = []
             this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {
                 peers.push(data)
@@ -190,8 +216,8 @@ class Peer {
         })
     }
     allLookUpHash(hash){
-        hash = MD5(hash)
         return new Promise(resolve => {
+            hash = MD5(hash)
             this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {
                 return resolve(data.peers)
                 // console.log(this.getLookUpData(data))
@@ -202,8 +228,8 @@ class Peer {
         })
     }
     randomLookUpHash(hash){
-        hash = MD5(hash)
         return new Promise(resolve => {
+            hash = MD5(hash)
             this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {
                 return resolve(data.peers[Math.floor(Math.random() * data.peers.length)])
                 // console.log(this.getLookUpData(data))

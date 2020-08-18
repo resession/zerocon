@@ -34,35 +34,39 @@ function commandFunc(){
                     peer.getTorrent(answer.data)
                     console.log(answer.command + ' done')
                     break;
-                case 'getall':
-                    peer.getAllTorrents(answer.data)
-                    console.log(answer.command + ' done')
-                    break;
+                // case 'getall':
+                //     peer.getAllTorrents(answer.data)
+                //     console.log(answer.command + ' done')
+                //     break;
                 case 'delete':
                     peer.deleteTorrent(answer.data)
                     console.log(answer.command + ' done')
                     break;
-                case 'deleteall':
-                    // peer.deleteAllTorrents(answer.data)
-                    peer.deleteAllTorrents()
-                    console.log(answer.command + ' done')
-                    break;
+                // case 'deleteall':
+                //     // peer.deleteAllTorrents(answer.data)
+                //     peer.deleteAllTorrents()
+                //     console.log(answer.command + ' done')
+                //     break;
                 case 'start':
                     peer.runTorrentApp(answer.data)
                     console.log(answer.command + ' done')
                     break;
-                case 'startall':
-                    peer.startAllApps(answer.data)
-                    console.log(answer.command + ' done')
-                    break;
+                // case 'startall':
+                //     peer.startAllApps(answer.data)
+                //     console.log(answer.command + ' done')
+                //     break;
                 case 'stop':
                     peer.stopTorrentApp(answer.data)
                     console.log(answer.command + ' done')
                     break;
-                case 'stopall':
-                    peer.stopAllApps()
-                    console.log(answer.command + ' done')
-                    break;
+                // case 'stopall':
+                //     peer.stopAllApps()
+                //     console.log(answer.command + ' done')
+                //     break;
+                // case 'stopall':
+                //     peer.startUpTorrents()
+                //     console.log(answer.command + ' done')
+                //     break;
                 case 'lookup':
                     peer.lookUpHash(answer.data)
                     console.log(answer.command + ' done')

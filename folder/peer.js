@@ -18,15 +18,33 @@ const MD5 = require('md5')
 class Peer {
     constructor(user){
         this.user = user
-        this.client = new WebTorrent({torrentPort: process.env.TORRENTPORT || 2000})
-        this.torrents = []
-        this.torrentApps = []
+        this.node = new WebTorrent({torrentPort: process.env.TORRENTPORT || 2000})
+        this.apps = []
         this.peers = DHT()
         this.peers.listen(process.env.PEERPORT || 8000)
+        this.startUpTorrents()
     }
     // test(){
     //     console.log(path.resolve(__dirname, '../zerocon/' + hash))
     // }
+    startUpTorrents(){
+        let folders = fs.readdirSync('./data')
+        for(const folderName of folders){
+            let torrent = this.node.seed('./data/' + folderName)
+            torrent.on('ready', () => {
+                console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + folderName)
+            })
+            torrent.on('error', error => {
+                console.log('there was an error, torrent was not posted\n', error)
+            })
+            torrent.on('metadata', () => {
+                console.log('metadata is good')
+            })
+            // torrent.on('warning', warning => {
+            //     console.log('there was an warning, torrent is still good\n', warning)
+            // })
+        }
+    }
     async getRandomPort(){
         return await getPort()
     }
@@ -71,11 +89,11 @@ class Peer {
         }
     }
     stopAllApps(){
-        this.torrentApps.forEach(app => {
+        this.apps.forEach(app => {
             this.unannouncePeer(app.announce.hash, app.announce.port)
             app.kill()
         })
-        // this.torrentApps = []
+        // this.apps = []
         console.log('stopped all apps')
     }
     getAllTorrents(hashInfo){
@@ -84,10 +102,9 @@ class Peer {
         }
     }
     deleteAllTorrents(){
-        this.torrents.forEach(torrent => {
+        this.node.torrents.forEach(torrent => {
             torrent.destroy()
         })
-        this.torrents = []
         console.log('all torrents deleted')
     }
     runTorrentApp(runData){
@@ -109,27 +126,27 @@ class Peer {
             console.log('could not install packages, did not start torrent app')
             return false
         }
-        torrentApp.hash = runData.hash
+        torrentApp.infoHash = runData.hash
         torrentApp.announce = {hash: runData.hash, port: runData.httpport}
         this.announcePeer(torrentApp.announce.hash, torrentApp.announce.port)
-        this.torrentApps.push(torrentApp)
+        this.apps.push(torrentApp)
         torrentApp.stderr.pipe(process.stderr)
         torrentApp.stdout.pipe(process.stdout)
         torrentApp.on('error', error => {
             console.log('error: ', error)
             // torrentApp.kill()
-            this.stopTorrentApp({hash: torrentApp.hash})
+            this.stopTorrentApp({hash: torrentApp.infoHash})
         })
         torrentApp.on('exit', (code, signal) => {
             this.killThePort(torrentApp.announce.port)
-            // this.removeTorrentApp({hash: torrentApp.hash})
-            console.log('remove app because of exit')
+            // this.removeTorrentApp({hash: torrentApp.infoHash})
+            console.log('app exited')
             console.log('exited: ', code, signal)
         })
         torrentApp.on('close', (code, signal) => {
             this.killThePort(torrentApp.announce.port)
-            // this.removeTorrentApp({hash: torrentApp.hash})
-            console.log('remove app again, just to be sure')
+            // this.removeTorrentApp({hash: torrentApp.infoHash})
+            console.log('app closed')
             console.log('closed: ', code, signal)
         })
     }
@@ -141,79 +158,75 @@ class Peer {
     stopTorrentApp(torrentInfo){
         let iter = 0
         let found = false
-        for(const i = 0;i < this.torrentApps.length; i++){
-            if(torrentInfo.hash === this.torrentApps[i].hash.toLowerCase() || torrentInfo.hash === this.torrentApps[i].hash.toUpperCase()){
+        for(let i = 0;i < this.apps.length; i++){
+            if(torrentInfo.hash === this.apps[i].infoHash.toLowerCase() || torrentInfo.hash === this.apps[i].infoHash.toUpperCase()){
                 found = true
                 iter = i
-                this.unannouncePeer(this.torrentApps[i].announce.hash, this.torrentApps[i].announce.port)
-                this.torrentApps[i].kill()
-                // this.torrentApps[i].kill()
-                console.log('app was found')
-            } else {
-                console.log('app could not be found')
+                this.unannouncePeer(this.apps[i].announce.hash, this.apps[i].announce.port)
+                this.apps[i].kill()
+                // this.apps[i].kill()
+                console.log('app was stopped')
             }
         }
         if(found){
-            this.torrentApps.splice(iter, 1)
-            console.log('app was removed')
+            this.apps.splice(iter, 1)
+            console.log('app was found\napp was removed')
+        } else {
+            console.log('app could not be found\napp could not be removed')
         }
     }
     // stopTorrentApp(torrentInfo){
     //     // let iter = 0
     //     // let found = false
-    //     for(const i = 0;i < this.torrentApps.length; i++){
-    //         if(torrentInfo.hash === this.torrentApps[i].hash.toLowerCase() || torrentInfo.hash === this.torrentApps[i].hash.toUpperCase()){
+    //     for(let i = 0;i < this.apps.length; i++){
+    //         if(torrentInfo.hash === this.apps[i].infoHash.toLowerCase() || torrentInfo.hash === this.apps[i].infoHash.toUpperCase()){
     //             found = true
     //             iter = i
-    //             this.unannouncePeer(this.torrentApps[i].announce.hash, this.torrentApps[i].announce.port)
-    //             this.torrentApps[i].kill()
-    //             // this.torrentApps[i].kill()
+    //             this.unannouncePeer(this.apps[i].announce.hash, this.apps[i].announce.port)
+    //             this.apps[i].kill()
+    //             // this.apps[i].kill()
     //             console.log('app was found and killed')
     //         } else {
     //             console.log('app could not be found and killed')
     //         }
     //     }
     //     // if(found){
-    //     //     this.torrentApps.splice(iter, 1)
+    //     //     this.apps.splice(iter, 1)
     //     //     console.log('app was removed')
     //     // }
     // }
     // removeTorrentApp(torrentInfo){
     //     let iter = 0
     //     let found = false
-    //     for(const i = 0;i < this.torrentApps.length; i++){
-    //         if(torrentInfo.hash === this.torrentApps[i].hash.toLowerCase() || torrentInfo.hash === this.torrentApps[i].hash.toUpperCase()){
+    //     for(let i = 0;i < this.apps.length; i++){
+    //         if(torrentInfo.hash === this.apps[i].infoHash.toLowerCase() || torrentInfo.hash === this.apps[i].infoHash.toUpperCase()){
     //             found = true
     //             iter = i
-    //             // this.unannouncePeer(this.torrentApps[i].announce.hash, this.torrentApps[i].announce.port)
-    //             // this.torrentApps[i].kill()
-    //             // this.torrentApps[i].kill()
+    //             // this.unannouncePeer(this.apps[i].announce.hash, this.apps[i].announce.port)
+    //             // this.apps[i].kill()
+    //             // this.apps[i].kill()
     //             console.log('app was found')
     //         } else {
     //             console.log('app could not be found')
     //         }
     //     }
     //     if(found){
-    //         this.torrentApps.splice(iter, 1)
+    //         this.apps.splice(iter, 1)
     //         console.log('app was removed')
     //     }
     // }
     deleteTorrent(torrentInfo){
-        let iter = 0
         let found = false
-        for(const i = 0;i < this.torrents.length; i++){
-            if(this.torrents[i].hash.toLowerCase() === torrentInfo.hash || this.torrents[i].hash.toUpperCase() === torrentInfo.hash){
+        this.node.torrents.forEach(torrent => {
+            if(torrent.infoHash.toLowerCase() === torrentInfo.hash || torrent.infoHash.toUpperCase() === torrentInfo.hash){
+                torrent.destroy()
                 found = true
-                iter = i
-                this.torrents[i].destroy()
-                console.log('torrent was destroyed')
-            } else {
-                console.log('torrent could not be found')
             }
-        }
+        })
         if(found){
-            this.torrents.splice(iter, 1)
-            console.log('torrent was removed')
+            console.log('torrent was found\ntorrent was removed')
+        } else {
+            console.log('torrent was not found\ntorrent could not be removed')
         }
     }
     lineByList(data){
@@ -237,34 +250,39 @@ class Peer {
             return {status: false, infohash: 'not available', folderName: torrentInfo.mainData.folderName}
         }
         torrentInfo.torrentData.user = this.user.address
-        fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/info.txt', this.lineByLine(torrentInfo.torrentData))
+        fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/info.json', JSON.stringify(torrentInfo.torrentData))
         fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/zero.json', JSON.stringify(torrentInfo.appData))
-        let torrent = this.client.seed('./data/' + torrentInfo.mainData.folderName)
-        torrent.hash = torrent.infoHash
-        this.torrents.push(torrent)
+        let torrent = this.node.seed('./data/' + torrentInfo.mainData.folderName)
         torrent.on('ready', () => {
             console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + torrentInfo.mainData.folderName)
             fse.copySync('./data/' + torrentInfo.mainData.folderName, './zerocon/' + torrent.infoHash, {recursive: true})
         })
-        torrent.on('error', () => {
-            console.log('there was an error')
-        })
-        return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.mainData.folderName}
-    }
-    getTorrent(torrentInfo){
-        let torrent = this.client.add(torrentInfo.hash, {path: './data/' + torrentInfo.hash})
-        torrent.hash = torrent.infoHash
-        this.torrents.push(torrent)
-        
-        torrent.on('infoHash', () => {
-            console.log('infoHash has been determined')
-        })
-        torrent.on('error', () => {
-            console.log('there was an error')
+        torrent.on('error', error => {
+            console.log('there was an error, torrent was not posted\n', error)
         })
         torrent.on('metadata', () => {
             console.log('metadata is good')
         })
+        // torrent.on('warning', warning => {
+        //     console.log('there was an warning, torrent is still good\n', warning)
+        // })
+        return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.mainData.folderName}
+    }
+    getTorrent(torrentInfo){
+        let torrent = this.node.add(torrentInfo.hash, {path: './data/' + torrentInfo.hash})
+        
+        torrent.on('infoHash', () => {
+            console.log('infoHash has been determined')
+        })
+        torrent.on('error', error => {
+            console.log('there was an error\n', error)
+        })
+        torrent.on('metadata', () => {
+            console.log('metadata is good')
+        })
+        // torrent.on('warning', warning => {
+        //     console.log('there was an warning, torrent is still good\n', warning)
+        // })
         torrent.on('ready', () => {
             console.log('infohash: ' + torrent.infoHash + ' is ready and now downloading')
             torrent.on('done', () => {

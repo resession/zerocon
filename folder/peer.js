@@ -19,7 +19,7 @@ class Peer {
         this.apps = []
         this.peers = DHT()
         this.peers.listen(process.env.PEERPORT || 8000)
-        this.startUpTorrents()
+        // this.startUpTorrents()
     }
     // test(){
     //     console.log(path.resolve(__dirname, '../zerocon/' + hash))

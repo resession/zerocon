@@ -5,10 +5,6 @@ const SHA1 = require('sha1')
 
 function startUser(){
     clearKeysFunc()
-    createAddress()
-}
-
-function createAddress(){
     if(fs.existsSync('./user.json')){
         try {
             let user = JSON.parse(fs.readFileSync('./user.json'))

@@ -26,6 +26,8 @@ class Peer {
     // }
     startHTTP(){
         this.http = express()
+        this.http.use(express.urlencoded({extended: true}))
+        this.http.use(express.json())
         this.http.get('/', (req, res) => {
             return res.status(200).json('success')
         })

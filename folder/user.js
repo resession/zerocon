@@ -42,8 +42,12 @@ function makeHash(address){
 
 function clearKeysFunc(){
     try {
-        fs.unlinkSync('./keys.json')
         fs.unlinkSync('./login.json')
+    } catch (error) {
+        console.log('clearKeysFunc error\n', error)
+    }
+    try {
+        fs.unlinkSync('./keys.json')
     } catch (error) {
         console.log('clearKeysFunc error\n', error)
     }
@@ -52,12 +56,16 @@ function clearKeysFunc(){
 function clearKeysSetFunc(){
     let check = setTimeout(() => {
         try {
-            fs.unlinkSync('./keys.json')
             fs.unlinkSync('./login.json')
-            clearTimeout(check)
         } catch (error) {
             console.log('clearKeysFunc error\n', error)
         }
+        try {
+            fs.unlinkSync('./keys.json')
+        } catch (error) {
+            console.log('clearKeysFunc error\n', error)
+        }
+        clearTimeout(check)
     }, 900000)
 }
 

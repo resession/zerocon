@@ -35,15 +35,15 @@ class Peer {
         this.http.get('/', (req, res) => {
             return res.status(200).json('success')
         })
-        this.http.get('/every/:hash', async (req, res) => {
-            try {
-                let peers = await this.everyLookUpHash(req.params.hash)
-                return res.status(200).json(peers)
-            } catch (error) {
-                console.log('every http error\n', error)
-                return res.status(400).json('was an error with your request')
-            }
-        })
+        // this.http.get('/every/:hash', async (req, res) => {
+        //     try {
+        //         let peers = await this.everyLookUpHash(req.params.hash)
+        //         return res.status(200).json(peers)
+        //     } catch (error) {
+        //         console.log('every http error\n', error)
+        //         return res.status(400).json('was an error with your request')
+        //     }
+        // })
         this.http.get('/all/:hash', async (req, res) => {
             try {
                 let peers = await this.allLookUpHash(req.params.hash)
@@ -68,12 +68,12 @@ class Peer {
         this.http.listen(process.env.HTTPPORT || 4000, process.env.HOST)
     }
     startWS(){
-        this.ws = new WebSocket.Server({port: process.env.WSPORT, host: process.env.HOST})
+        this.ws = new WebSocket.Server({port: process.env.WSPORT || 6000, host: process.env.HOST})
         this.ws.check = setInterval(() => {
             this.ws.clients.forEach(socket => {
                 socket.close()
             })
-            console.log('closed all sockets every minute')
+            // console.log('closed all sockets every minute')
         }, 60000)
         this.ws.on('connection', socket => {
             socket.on('close', (code, reason) => {
@@ -202,18 +202,18 @@ class Peer {
             })
         })
     }
-    everyLookUpHash(hash){
-        return new Promise(resolve => {
-            hash = MD5(hash)
-            let peers = []
-            this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {
-                peers.push(data)
-                // console.log(this.getLookUpData(data))
-            }).on('end', () => {
-                return resolve(peers)
-            })
-        })
-    }
+    // everyLookUpHash(hash){
+    //     return new Promise(resolve => {
+    //         hash = MD5(hash)
+    //         let peers = []
+    //         this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {
+    //             peers.push(data)
+    //             // console.log(this.getLookUpData(data))
+    //         }).on('end', () => {
+    //             return resolve(peers)
+    //         })
+    //     })
+    // }
     allLookUpHash(hash){
         return new Promise(resolve => {
             hash = MD5(hash)

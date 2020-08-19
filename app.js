@@ -2,6 +2,7 @@ require('dotenv').config()
 const {startUser} = require('./folder/user.js')
 const {Peer} = require('./folder/peer.js')
 const readline = require('readline')
+const { number } = require('bitcoinjs-lib/types/script')
 
 const peer = new Peer(startUser())
 
@@ -115,7 +116,8 @@ function commandFunc(){
 if(Number(process.env.CLI)){
     console.log('started cli')
     commandFunc()
-} else {
+}
+if(Number(process.env.SERVER)){
     console.log('started http and ws')
     peer.startHTTP()
     peer.startWS()

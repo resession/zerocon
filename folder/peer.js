@@ -198,7 +198,7 @@ class Peer {
             this.peers.lookup(Buffer.from(hash, 'utf8')).on('data', data => {
                 console.log(this.getLookUpData(data))
             }).on('end', () => {
-                resolve('lookup is finished')
+                return resolve('lookup is finished')
             })
         })
     }

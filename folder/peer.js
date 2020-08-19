@@ -19,12 +19,6 @@ class Peer {
         this.apps = []
         this.peers = DHT()
         this.peers.listen(process.env.PEERPORT || 8000)
-        if(Number(process.env.HTTPSERVER)){
-            this.startHTTP()
-        }
-        if(Number(process.env.WSSERVER)){
-            this.startWS()
-        }
         this.startUpTorrents()
     }
     // test(){
@@ -35,7 +29,33 @@ class Peer {
         this.http.get('/', (req, res) => {
             return res.status(200).json('success')
         })
-        // this.http.get('/every/:hash', async (req, res) => {
+        this.http.post('/app/start', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.runTorrentApp(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http app start error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/app/stop', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.stopTorrentApp(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http app stop error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        // this.http.get('lookup/every/:hash', async (req, res) => {
         //     try {
         //         let peers = await this.everyLookUpHash(req.params.hash)
         //         return res.status(200).json(peers)
@@ -44,7 +64,7 @@ class Peer {
         //         return res.status(400).json('was an error with your request')
         //     }
         // })
-        this.http.get('/all/:hash', async (req, res) => {
+        this.http.get('lookup/all/:hash', async (req, res) => {
             try {
                 let peers = await this.allLookUpHash(req.params.hash)
                 return res.status(200).json(peers)
@@ -53,13 +73,52 @@ class Peer {
                 return res.status(400).json('was an error with your request')
             }
         })
-        this.http.get('/random/:hash', async (req, res) => {
+        this.http.get('lookup/random/:hash', async (req, res) => {
             try {
                 let peer = await this.randomLookUpHash(req.params.hash)
                 return res.status(200).json(peer)
             } catch (error) {
                 console.log('every http error\n', error)
                 return res.status(400).json('was an error with your request')
+            }
+        })
+        this.http.post('/torrent/get', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.getTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent get error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/torrent/delete', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.deleteTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent delete error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/torrent/post', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.postTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent post error\n', error)
+                return res.status(500).json(false)
             }
         })
         this.http.get('*', (req, res) => {

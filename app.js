@@ -112,4 +112,11 @@ function commandFunc(){
     })
 }
 
-commandFunc()
+if(Number(process.env.CLI)){
+    console.log('started cli')
+    commandFunc()
+} else {
+    console.log('started http and ws')
+    peer.startHTTP()
+    peer.startWS()
+}

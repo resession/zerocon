@@ -7,7 +7,7 @@ function startUser(){
     clearKeysFunc()
     if(fs.existsSync('./user.json')){
         try {
-            let user = JSON.parse(fs.readFileSync('./user.json'))
+            let currentUser = JSON.parse(fs.readFileSync('./user.json'))
             // if(typeof(user) !== 'object' || !user.id.address || !user.id.pubkey|| !user.id.regPrivateKey || !user.id.wifPrivateKey || !user.announced){
             //     user = makeUser()
             //     fs.writeFileSync('./user.json', JSON.stringify(user))
@@ -15,24 +15,26 @@ function startUser(){
             // } else {
             //     return user
             // }
-            return user
+            return currentUser
         } catch(error) {
             let user = makeUser()
             let hash = makeHash(user.address)
+            let currentUser = {address: user.address, login: SHA1(user.address + hash)}
             fs.writeFileSync('./login.json', JSON.stringify({password: hash}))
-            fs.writeFileSync('./user.json', JSON.stringify({address: user.address, login: SHA1(user.address + hash)}))
+            fs.writeFileSync('./user.json', JSON.stringify(currentUser))
             fs.writeFileSync('./keys.json', JSON.stringify(user))
             clearKeysSetFunc()
-            return user
+            return currentUser
         }
     } else {
         let user = makeUser()
         let hash = makeHash(user.address)
+        let currentUser = {address: user.address, login: SHA1(user.address + hash)}
         fs.writeFileSync('./login.json', JSON.stringify({password: hash}))
-        fs.writeFileSync('./user.json', JSON.stringify({address: user.address, login: SHA1(user.address + hash)}))
+        fs.writeFileSync('./user.json', JSON.stringify(currentUser))
         fs.writeFileSync('./keys.json', JSON.stringify(user))
         clearKeysSetFunc()
-        return user
+        return currentUser
     }
 }
 

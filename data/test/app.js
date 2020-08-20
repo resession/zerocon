@@ -13,7 +13,7 @@ http.get('*', (req, res) => {
 
 http.listen(process.env.HTTPPORT, process.env.HOST)
 
-const ws = new WebSocket.Server({port: process.env.HTTPPORT, host: process.env.HOST})
+const ws = new WebSocket.Server({port: process.env.WSPORT, host: process.env.HOST})
 ws.check = setInterval(() => {
     ws.clients.forEach(socket => {
         socket.close()

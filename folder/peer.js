@@ -26,10 +26,24 @@ class Peer {
     // }
     startHTTP(){
         this.http = express()
+        this.http.use(express.static('frontend'))
         this.http.use(express.urlencoded({extended: true}))
         this.http.use(express.json())
         this.http.get('/', (req, res) => {
             return res.status(200).json('success')
+        })
+        this.http.post('/app/remove', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.removeTorrentApp(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http app stop error\n', error)
+                return res.status(500).json(false)
+            }
         })
         this.http.post('/app/start', (req, res) => {
             try {
@@ -54,6 +68,84 @@ class Peer {
                 }
             } catch (error) {
                 console.log('http app stop error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/backend/torrent/get', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.getTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent get error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/backend/torrent/delete', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.deleteTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent delete error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/backend/torrent/post', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.postTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent post error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/frontend/torrent/get', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.getTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent get error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/frontend/torrent/delete', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.deleteTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent delete error\n', error)
+                return res.status(500).json(false)
+            }
+        })
+        this.http.post('/frontend/torrent/post', (req, res) => {
+            try {
+                if(SHA1(this.user.address + req.body.password) !== this.user.login){
+                    return res.status(400).json(false)
+                } else {
+                    this.postTorrent(req.body.data)
+                    return res.status(200).json(true)
+                }
+            } catch (error) {
+                console.log('http torrent post error\n', error)
                 return res.status(500).json(false)
             }
         })
@@ -84,42 +176,16 @@ class Peer {
                 return res.status(400).json('was an error with your request')
             }
         })
-        this.http.post('/torrent/get', (req, res) => {
+        this.http.post('/site/remove', (req, res) => {
             try {
                 if(SHA1(this.user.address + req.body.password) !== this.user.login){
                     return res.status(400).json(false)
                 } else {
-                    this.getTorrent(req.body.data)
+                    this.removeTorrentSite(req.body.data)
                     return res.status(200).json(true)
                 }
             } catch (error) {
-                console.log('http torrent get error\n', error)
-                return res.status(500).json(false)
-            }
-        })
-        this.http.post('/torrent/delete', (req, res) => {
-            try {
-                if(SHA1(this.user.address + req.body.password) !== this.user.login){
-                    return res.status(400).json(false)
-                } else {
-                    this.deleteTorrent(req.body.data)
-                    return res.status(200).json(true)
-                }
-            } catch (error) {
-                console.log('http torrent delete error\n', error)
-                return res.status(500).json(false)
-            }
-        })
-        this.http.post('/torrent/post', (req, res) => {
-            try {
-                if(SHA1(this.user.address + req.body.password) !== this.user.login){
-                    return res.status(400).json(false)
-                } else {
-                    this.postTorrent(req.body.data)
-                    return res.status(200).json(true)
-                }
-            } catch (error) {
-                console.log('http torrent post error\n', error)
+                console.log('http app stop error\n', error)
                 return res.status(500).json(false)
             }
         })
@@ -231,6 +297,23 @@ class Peer {
     async getRandomPort(){
         return await getPort()
     }
+    removeTorrentSite(torrentInfo){
+        this.deleteTorrent(torrentInfo)
+        console.log('if torrent was active, it is now inactive')
+        fse.removeSync('./data/' + torrentInfo.hash)
+        fse.removeSync('./frontend/' + torrentInfo.hash)
+        console.log('removed app from data and frontend folder')
+    }
+    removeTorrentApp(torrentInfo){
+        this.stopTorrentApp(torrentInfo)
+        console.log('if app was running, it is stopped now')
+        this.deleteTorrent(torrentInfo)
+        console.log('if torrent was active, it is now inactive')
+        fse.removeSync('./data/' + torrentInfo.hash)
+        fse.removeSync('./backend/' + torrentInfo.hash)
+        console.log('removed app from data and backend folder')
+
+    }
     announcePeer(hash, port){
         port = Number(port)
         hash = MD5(hash)
@@ -325,8 +408,15 @@ class Peer {
         })
         console.log('all torrents deleted')
     }
+    // runPageApp(runApp){
+    //     let zero = JSON.parse(fs.readFileSync('./backend/' + runApp.hash + '/zero.json'))
+    // }
+    // stopPageApp(torrentInfo){
+    //     fse.removeSync('./frontend/' + torrentInfo.hash)
+    //     console.log('deleted the app/site')
+    // }
     runTorrentApp(runData){
-        let zero = JSON.parse(fs.readFileSync('./zerocon/' + runData.hash + '/zero.json'))
+        let zero = JSON.parse(fs.readFileSync('./backend/' + runData.hash + '/zero.json'))
         let torrentApp = null
         let environmentVar = {...process.env}
         environmentVar.HTTPPORT = runData.httpport
@@ -335,9 +425,9 @@ class Peer {
         try {
             if(zero.runLanguage === 'python' || zero.runLanguage === 'python3'){
                 zero.runLanguage = process.platform !== 'win32' ? 'python3' : 'python'
-                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../zerocon/' + runData.hash), shell: true})
+                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../backend/' + runData.hash), shell: true})
             } else {
-                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../zerocon/' + runData.hash), shell: true})
+                torrentApp = spawn(`${zero.installPackage} ${zero.installArguments.split(',').join(' ')} && ${zero.runLanguage} ${zero.runArguments.split(',').join(' ')}`, [], {env: environmentVar, stdio: 'pipe', cwd: path.resolve(__dirname, '../backend/' + runData.hash), shell: true})
             }
         } catch (error) {
             console.log('try/catch', error)
@@ -461,19 +551,19 @@ class Peer {
         }
         return outLog
     }
-    postTorrent(torrentInfo){
-        torrentInfo.mainData.folderName = torrentInfo.mainData.folderName.replace(/[^a-zA-Z0-9]/g, "")
+    postFrontTorrent(torrentInfo){
         if(!fs.existsSync('./data/' + torrentInfo.mainData.folderName)){
             console.log('can not find a folder with the name ' + torrentInfo.mainData.folderName)
             return {status: false, infohash: 'not available', folderName: torrentInfo.mainData.folderName}
         }
+        torrentInfo.mainData.folderName = torrentInfo.mainData.folderName.replace(/[^a-zA-Z0-9]/g, "")
         torrentInfo.torrentData.user = this.user.address
         fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/info.json', JSON.stringify(torrentInfo.torrentData))
         fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/zero.json', JSON.stringify(torrentInfo.appData))
         let torrent = this.node.seed('./data/' + torrentInfo.mainData.folderName)
         torrent.on('ready', () => {
             console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + torrentInfo.mainData.folderName)
-            fse.copySync('./data/' + torrentInfo.mainData.folderName, './zerocon/' + torrent.infoHash, {recursive: true})
+            fse.copySync('./data/' + torrentInfo.mainData.folderName, './frontend/' + torrent.infoHash, {recursive: true})
         })
         torrent.on('error', error => {
             console.log('there was an error, torrent was not posted\n', error)
@@ -486,7 +576,32 @@ class Peer {
         // })
         return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.mainData.folderName}
     }
-    getTorrent(torrentInfo){
+    postBackTorrent(torrentInfo){
+        if(!fs.existsSync('./data/' + torrentInfo.mainData.folderName)){
+            console.log('can not find a folder with the name ' + torrentInfo.mainData.folderName)
+            return {status: false, infohash: 'not available', folderName: torrentInfo.mainData.folderName}
+        }
+        torrentInfo.mainData.folderName = torrentInfo.mainData.folderName.replace(/[^a-zA-Z0-9]/g, "")
+        torrentInfo.torrentData.user = this.user.address
+        fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/info.json', JSON.stringify(torrentInfo.torrentData))
+        fs.writeFileSync('./data/' + torrentInfo.mainData.folderName + '/zero.json', JSON.stringify(torrentInfo.appData))
+        let torrent = this.node.seed('./data/' + torrentInfo.mainData.folderName)
+        torrent.on('ready', () => {
+            console.log('infohash: ' + torrent.infoHash + ' is ready and done, it is now uplading - ' + torrentInfo.mainData.folderName)
+            fse.copySync('./data/' + torrentInfo.mainData.folderName, './backend/' + torrent.infoHash, {recursive: true})
+        })
+        torrent.on('error', error => {
+            console.log('there was an error, torrent was not posted\n', error)
+        })
+        torrent.on('metadata', () => {
+            console.log('metadata is good')
+        })
+        // torrent.on('warning', warning => {
+        //     console.log('there was an warning, torrent is still good\n', warning)
+        // })
+        return {status: true, infohash: torrent.infoHash, folderName: torrentInfo.mainData.folderName}
+    }
+    getFrontTorrent(torrentInfo){
         let torrent = this.node.add(torrentInfo.hash, {path: './data/' + torrentInfo.hash})
         
         torrent.on('infoHash', () => {
@@ -505,7 +620,30 @@ class Peer {
             console.log('infohash: ' + torrent.infoHash + ' is ready and now downloading')
             torrent.on('done', () => {
                 console.log('infohash: ' + torrent.infoHash + ' is done')
-                fse.copySync('./data/' + torrentInfo.hash, './zerocon/' + torrent.infoHash, {recursive: true})
+                fse.copySync('./data/' + torrentInfo.hash, './frontend/' + torrent.infoHash, {recursive: true})
+            })
+        })
+    }
+    getBackTorrent(torrentInfo){
+        let torrent = this.node.add(torrentInfo.hash, {path: './data/' + torrentInfo.hash})
+        
+        torrent.on('infoHash', () => {
+            console.log('infoHash has been determined')
+        })
+        torrent.on('error', error => {
+            console.log('there was an error\n', error)
+        })
+        torrent.on('metadata', () => {
+            console.log('metadata is good')
+        })
+        // torrent.on('warning', warning => {
+        //     console.log('there was an warning, torrent is still good\n', warning)
+        // })
+        torrent.on('ready', () => {
+            console.log('infohash: ' + torrent.infoHash + ' is ready and now downloading')
+            torrent.on('done', () => {
+                console.log('infohash: ' + torrent.infoHash + ' is done')
+                fse.copySync('./data/' + torrentInfo.hash, './backend/' + torrent.infoHash, {recursive: true})
             })
         })
     }

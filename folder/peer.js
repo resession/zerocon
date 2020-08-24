@@ -149,7 +149,7 @@ class Peer {
                 return res.status(500).json(false)
             }
         })
-        // this.http.get('lookup/every/:hash', async (req, res) => {
+        // this.http.get('/lookup/every/:hash', async (req, res) => {
         //     try {
         //         let peers = await this.everyLookUpHash(req.params.hash)
         //         return res.status(200).json(peers)
@@ -158,7 +158,7 @@ class Peer {
         //         return res.status(400).json('was an error with your request')
         //     }
         // })
-        this.http.get('lookup/all/:hash', async (req, res) => {
+        this.http.get('/lookup/all/:hash', async (req, res) => {
             try {
                 let peers = await this.allLookUpHash(req.params.hash)
                 return res.status(200).json(peers)
@@ -167,7 +167,7 @@ class Peer {
                 return res.status(400).json('was an error with your request')
             }
         })
-        this.http.get('lookup/random/:hash', async (req, res) => {
+        this.http.get('/lookup/random/:hash', async (req, res) => {
             try {
                 let peer = await this.randomLookUpHash(req.params.hash)
                 return res.status(200).json(peer)
